@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MOV to MP4 Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .drag-over { border: 2px dashed #3b82f6; background-color: #eff6ff; }
+        .progress-bar { transition: width 0.3s ease-in-out; }
+    </style>
+</head>
+<body class="bg-gray-50 flex items-center justify-center min-h-screen font-sans">
+    <div class="bg-white p-8 rounded-xl shadow-xl w-full max-w-lg">
+        <h1 class="text-3xl font-bold mb-6 text-center text-gray-800">MOV to MP4 Converter</h1>
+        <form id="convertForm" class="space-y-6">
+            <div>
+                <label for="videoInput" class="block text-sm font-medium text-gray-700 mb-2">Select MOV File</label>
+                <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-blue-500 transition-colors">
+                    <input type="file" id="videoInput" accept=".mov" class="hidden" aria-describedby="fileHelp">
+                    <p id="dropText" class="text-gray-500">Drag and drop a MOV file here or click to browse</p>
+                    <p id="fileHelp" class="text-xs text-gray-400 mt-1">Only .mov files are supported</p>
+                </div>
+            </div>
+            <div>
+                <label for="outputFilename" class="block text-sm font-medium text-gray-700 mb-2">Output MP4 Filename</label>
+                <input type="text" id="outputFilename" placeholder="output.mp4" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2" aria-describedby="outputHelp">
+                <p id="outputHelp" class="text-xs text-gray-400 mt-1">Default: output.mp4</p>
+            </div>
+            <div class="flex items-center">
+                <input type="checkbox" id="overwrite" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                <label for="overwrite" class="ml-2 text-sm text-gray-700">Overwrite if file exists</label>
+            </div>
+            <button type="button" id="convertBtn" class="w-full py-3 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400 transition-colors" disabled>Convert</button>
+            <div id="progressContainer" class="hidden mt-4">
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full progress-bar" style="width: 0%"></div>
+                </div>
+                <p id="status" class="text-sm text-gray-600 mt-2 text-center"></p>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const videoInput = document.getElementById('videoInput');
+        const outputFilename = document.getElementById('outputFilename');
+        const overwrite = document.getElementById('overwrite');
+        const convertBtn = document.getElementById('convertBtn');
+        const status = document.getElementById('status');
+        const dropZone = document.getElementById('dropZone');
+        const dropText = document.getElementById('dropText');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+
+        // Enable convert button when file is selected
+        videoInput.addEventListener('change', () => {
+            convertBtn.disabled = !videoInput.files.length;
+            dropText.textContent = videoInput.files.length ? videoInput.files[0].name : 'Drag and drop a MOV file here or click to browse';
+        });
+
+        // Drag and drop functionality
+        dropZone.addEventListener('click', () => videoInput.click());
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            videoInput.files = e.dataTransfer.files;
+            videoInput.dispatchEvent(new Event('change'));
+        });
+
+        // Handle conversion
+        convertBtn.addEventListener('click', async () => {
+            if (!videoInput.files.length) {
+                status.textContent = 'Please select a MOV file first';
+                status.className = 'text-sm text-red-600 mt-2 text-center';
+                return;
+            }
+
+            convertBtn.disabled = true;
+            progressContainer.classList.remove('hidden');
+            status.textContent = 'Converting...';
+            status.className = 'text-sm text-blue-600 mt-2 text-center';
+            progressBar.style.width = '20%'; // Initial progress
+
+            const formData = new FormData();
+            formData.append('file', videoInput.files[0]);
+            formData.append('output_filename', outputFilename.value || 'output.mp4');
+            formData.append('overwrite', overwrite.checked);
+
+            try {
+                progressBar.style.width = '50%'; // Simulate progress
+                const response = await fetch('/convert', {
+                    method: 'POST',
+                    body: formData
+                });
+                progressBar.style.width = '80%'; // Simulate progress
+                const result = await response.json();
+                progressBar.style.width = '100%';
+
+                status.textContent = result.message;
+                status.className = `text-sm mt-2 text-center ${result.status === 'success' ? 'text-green-600' : 'text-red-600'}`;
+            } catch (error) {
+                status.textContent = 'Error: Failed to connect to server';
+                status.className = 'text-sm text-red-600 mt-2 text-center';
+            } finally {
+                convertBtn.disabled = false;
+                setTimeout(() => {
+                    progressBar.style.width = '0%';
+                    progressContainer.classList.add('hidden');
+                }, 2000);
+            }
+        });
+    </script>
+</body>
+</html>
